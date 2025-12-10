@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Análisis Numérico — Capibara Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* esquema tierra / capibara */
+    --bg-1:#0b100f;
+    --bg-2:#1e2a21;
+    --muted:#c8bfb2;
+    --accent:#b5651d;   /* burnt orange */
+    --accent-2:#8b5e3c; /* brown */
+    --accent-3:#dba87a; /* sand */
+    --glass: rgba(255,255,255,0.03);
+    --card-radius:14px;
+    --soft: 0 14px 40px rgba(6,6,6,0.6);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:
+      radial-gradient(600px 220px at 10% 10%, rgba(181,101,29,0.10), transparent 8%),
+      radial-gradient(500px 200px at 90% 90%, rgba(139,94,60,0.05), transparent 6%),
+      linear-gradient(180deg,var(--bg-1), var(--bg-2));
+    font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    color:#fff;padding:28px;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  }
+
+  .container{max-width:1180px;margin:0 auto}
+  header{display:flex;gap:16px;align-items:center;margin-bottom:14px;position:relative}
+  .logo{
+    width:64px;height:64px;border-radius:12px;
+    background:linear-gradient(135deg,var(--accent), var(--accent-2));
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;
+    box-shadow:0 12px 40px rgba(181,101,29,0.14);
+  }
+  h1{margin:0;font-size:20px}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+
+  /* Capibara track in header */
+  .capibara-track{position:absolute;right:8px;top:-10px;width:420px;height:70px;pointer-events:none;overflow:visible}
+  .capibara-wrap{position:absolute;left:-140px;top:0;width:140px;height:70px;pointer-events:none}
+  /* the animation moves the wrapper across the track */
+  @keyframes walkAcross {
+    0% { transform: translateX(-180px) scale(0.95) }
+    12% { transform: translateX(0) scale(1) }
+    88% { transform: translateX(220px) scale(1) }
+    100% { transform: translateX(420px) scale(0.95) }
+  }
+  .capibara-wrap.walk { animation: walkAcross 9s linear infinite; }
+
+  /* subtle bob (head) */
+  @keyframes bob {
+    0% { transform: translateY(0) }
+    50% { transform: translateY(-3px) }
+    100% { transform: translateY(0) }
+  }
+  .cap-head { transform-origin: center; animation: bob 1.2s ease-in-out infinite; }
+
+  /* NAV */
+  .nav-card{display:flex;gap:12px;align-items:center;padding:10px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.008));border:1px solid rgba(255,255,255,0.03);box-shadow:var(--soft)}
+  .btn{
+    position:relative; overflow:hidden;
+    padding:10px 14px;border-radius:10px;border:0;background:linear-gradient(180deg,var(--accent), var(--accent-2));
+    color:#fff;font-weight:700;cursor:pointer;letter-spacing:0.2px;transition:transform .14s ease, box-shadow .14s ease;
+    box-shadow:0 12px 30px rgba(139,94,60,0.12);
+  }
+  .btn.gray{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03);box-shadow:none}
+  .btn:active{transform:translateY(1px)}
+  .btn:hover{transform:translateY(-6px)}
+  .btn::after{content:"";position:absolute;border-radius:999px;transform:scale(0);opacity:0;transition:opacity .35s, transform .4s}
+  .btn.ripple:after{transform:scale(4);opacity:.08;background:#fff;width:200px;height:200px;left:50%;top:50%;margin-left:-100px;margin-top:-100px}
+
+  /* Layout */
+  .grid{display:grid;grid-template-columns:1fr 460px;gap:18px;margin-top:18px}
+  @media (max-width:980px){ .grid{grid-template-columns:1fr} }
+
+  .card{
+    border-radius:var(--card-radius);padding:14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);backdrop-filter: blur(8px);box-shadow:var(--soft);
+    transform:translateY(8px);opacity:0;animation:fadeUp .5s ease forwards;
+  }
+  @keyframes fadeUp{ to{transform:none;opacity:1} }
+  .panel-title{font-weight:800;margin-bottom:8px;color:var(--accent-3)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .col{flex:1;min-width:200px}
+  label.small{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+  input, textarea, select{
+    width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit;outline:none;
+    transition:box-shadow .12s, border-color .12s;
+  }
+  input:focus, textarea:focus{box-shadow:0 12px 30px rgba(181,101,29,0.10);border-color:rgba(181,101,29,0.45)}
+
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  .result{
+    margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    border:1px solid rgba(255,255,255,0.02);min-height:62px;position:relative;overflow:hidden;
+  }
+
+  .num{font-weight:700;font-size:1.05rem;color:#fff;display:inline-block;transition:transform .25s}
+  .label-muted{color:var(--muted);font-size:13px}
+
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  thead th{background:rgba(255,255,255,0.02);color:var(--muted);padding:8px;text-align:center}
+  tbody td{padding:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.02)}
+
+  .chart{width:100%;height:320px;border-radius:12px;padding:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));display:flex;align-items:center;justify-content:center;color:var(--muted);position:relative;overflow:hidden}
+  .chart .watermark{position:absolute;right:12px;bottom:8px;font-size:11px;color:rgba(255,255,255,0.06)}
+  .loader{display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,0.15);border-top-color:#fff;transform:translateY(2px);animation:spin .8s linear infinite;vertical-align:middle;margin-left:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hint{font-size:13px;color:var(--muted);margin-top:8px}
+  footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+  /* hover effect on cards */
+  .card:hover{transform:translateY(-6px);box-shadow:0 28px 60px rgba(2,6,23,0.7)}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">AN</div>
+      <div>
+        <h1>Análisis Numérico — Capibara Edition</h1>
+        <p class="lead">Tonos tierra, micro-animaciones y una capibara curiosa paseando por la UI.</p>
+      </div>
+
+      <!-- Capibara SVG track (header, right) -->
+      <div class="capibara-track" aria-hidden="true">
+        <div id="capWrap" class="capibara-wrap walk" title="Capibara paseando">
+          <!-- Simplified adorable capibara SVG -->
+          <svg width="140" height="70" viewBox="0 0 280 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- body -->
+            <g transform="translate(20,40)">
+              <ellipse cx="120" cy="40" rx="110" ry="38" fill="#d19a5f" stroke="#8b5e3c" stroke-width="4"/>
+              <!-- head group (animated bob) -->
+              <g class="cap-head" transform="translate(20,8)">
+                <ellipse cx="240" cy="30" rx="34" ry="26" fill="#d19a5f" stroke="#8b5e3c" stroke-width="3"/>
+                <circle cx="250" cy="26" r="4" fill="#3b2b21"/>
+                <circle cx="225" cy="26" r="4" fill="#3b2b21"/>
+                <ellipse cx="240" cy="40" rx="10" ry="6" fill="#8b5e3c"/>
+                <!-- ear -->
+                <ellipse cx="260" cy="12" rx="6" ry="9" fill="#d19a5f"/>
+              </g>
+              <!-- legs -->
+              <rect x="30" y="64" width="16" height="22" rx="6" fill="#a87545"/>
+              <rect x="70" y="64" width="16" height="22" rx="6" fill="#a87545"/>
+              <rect x="150" y="64" width="16" height="22" rx="6" fill="#a87545"/>
+              <rect x="190" y="64" width="16" height="22" rx="6" fill="#a87545"/>
+              <!-- eye blink animation via JS (class toggled) -->
+            </g>
+          </svg>
+        </div>
+      </div>
+    </header>
+
+    <div class="nav-card">
+      <button id="btn-linear" class="btn ripple">Sistemas</button>
+      <button id="btn-interp" class="btn gray">Interpolación</button>
+      <button id="btn-diffint" class="btn gray">Derivar & Integrar</button>
+      <div style="margin-left:auto;color:var(--muted);font-size:13px">v1.1 • Capibara incluida</div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <!-- Linear -->
+        <section id="panel-linear" class="card" style="margin-top:18px">
+          <div class="panel-title">1) Sistemas de ecuaciones — Eliminación Gaussiana</div>
+          <div class="row">
+            <div class="col">
+              <label class="small">Matriz A (cada fila en una línea)</label>
+              <textarea id="lin-A" rows="5">3 2 -1
+2 -2 4
+-1 0.5 -1</textarea>
+            </div>
+            <div class="col">
+              <label class="small">Vector b</label>
+              <input id="lin-b" value="1 -2 0" />
+              <div class="controls" style="margin-top:10px">
+                <button id="lin-solve" class="btn">Resolver</button>
+                <button id="lin-example" class="btn gray">Ejemplo</button>
+                <div id="lin-loading" style="display:none" aria-hidden="true"><span class="loader"></span></div>
+              </div>
+              <div class="hint">Inserta números separados por espacios. Usamos pivoteo parcial.</div>
+            </div>
+          </div>
+
+          <div id="lin-output" class="result" style="display:none"></div>
+        </section>
+
+        <!-- Interpolation -->
+        <section id="panel-interp" class="card" style="margin-top:18px; display:none">
+          <div class="panel-title">2) Interpolación — Lagrange</div>
+          <div class="row">
+            <div class="col">
+              <label class="small">Puntos x</label>
+              <input id="int-xs" value="0 1 2 3" />
+              <label class="small" style="margin-top:8px">Puntos y</label>
+              <input id="int-ys" value="1 2 0 -1" />
+              <label class="small" style="margin-top:8px">Evaluar en x =</label>
+              <input id="int-x" value="1.5" />
+              <div class="controls" style="margin-top:8px">
+                <button id="int-calc" class="btn">Calcular</button>
+                <button id="int-example" class="btn gray">Ejemplo</button>
+              </div>
+              <div class="hint">La capibara observa — la gráfica se anima al dibujar.</div>
+            </div>
+
+            <div class="col">
+              <div id="int-result" class="result" style="display:none"></div>
+              <div id="int-chart" class="chart" style="margin-top:10px"><div class="watermark">Lagrange</div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Diff & Int -->
+        <section id="panel-diffint" class="card" style="margin-top:18px; display:none">
+          <div class="panel-title">3) Derivación e Integración numérica</div>
+          <div class="row">
+            <div class="col">
+              <label class="small">Función f(x) (JS):</label>
+              <input id="di-f" value="Math.sin(x)" />
+              <label class="small" style="margin-top:8px">Derivar en x =</label>
+              <input id="di-x" value="1.0" />
+              <label class="small" style="margin-top:8px">h</label>
+              <input id="di-h" value="1e-4" />
+            </div>
+            <div class="col">
+              <label class="small">Integrar desde a</label>
+              <input id="di-a" value="0" />
+              <label class="small" style="margin-top:8px">hasta b</label>
+              <input id="di-b" value="3.141592653589793" />
+              <label class="small" style="margin-top:8px">n (par)</label>
+              <input id="di-n" value="100" />
+              <div class="controls" style="margin-top:8px">
+                <button id="di-run" class="btn">Calcular</button>
+                <button id="di-example" class="btn gray">Ejemplo</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="di-output" class="result" style="display:none; margin-top:12px"></div>
+          <div id="di-chart" class="chart" style="margin-top:12px"><div class="watermark">f(x)</div></div>
+        </section>
+      </div>
+
+      <aside>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:800">Vista rápida</div>
+            <div style="color:var(--muted);font-size:13px">Capibara presente</div>
+          </div>
+          <div id="quick" style="margin-top:12px;color:var(--muted);font-size:13px">
+            Ejecuta un método y mira cómo la capibara reacciona con un parpadeo.
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div style="font-weight:800">Consejos</div>
+          <ul style="color:var(--muted);margin-top:8px;line-height:1.6">
+            <li>Newton requiere derivada y buena aproximación inicial.</li>
+            <li>Bisección garantiza convergencia si f(a)*f(b) &lt; 0.</li>
+            <li>Para Simpson usa n par; mayor n → más precisión.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <footer>Hecho con ♥ — ¿Quieres que la capibara haga más gestos o traiga sonidos? Dímelo.</footer>
+  </div>
+
+<script>
+/* ---------------- util ---------------- */
+function $(id){return document.getElementById(id)}
+function parseNum(v, fallback=NaN){ const n=Number(v); return Number.isFinite(n)? n: fallback }
+function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild) }
+function addRipple(btn){ btn.classList.remove('ripple'); void btn.offsetWidth; btn.classList.add('ripple') }
+
+/* small helper: animate numbers */
+function animateNumber(el, from, to, ms = 700){
+  const start = performance.now()
+  requestAnimationFrame(function tick(now){
+    const t = Math.min(1, (now - start)/ms)
+    const val = from + (to - from) * (1 - Math.cos(Math.PI * t))/2
+    // choose format
+    if(Math.abs(to) < 1e-4) el.textContent = val.toExponential(3)
+    else el.textContent = Number(val).toFixed(6)
+    if(t < 1) requestAnimationFrame(tick)
+  })
+}
+
+/* plot with stroke animation */
+function plotAnimated(container, series, series2){
+  clearChildren(container)
+  const w = container.clientWidth || 400, h = container.clientHeight || 300
+  const svgNS = "http://www.w3.org/2000/svg"
+  const svg = document.createElementNS(svgNS,'svg')
+  svg.setAttribute('width', w); svg.setAttribute('height', h)
+  svg.style.display='block'; svg.style.width='100%'; svg.style.height='100%'
+  if(!series || series.length===0){ container.textContent='Sin datos para graficar.'; return }
+  const xs = series.map(p=>p.x), ys = series.map(p=>p.y)
+  if(series2){ xs.push(...series2.map(p=>p.x)); ys.push(...series2.map(p=>p.y)) }
+  const xmin = Math.min(...xs), xmax = Math.max(...xs)
+  const ymin = Math.min(...ys), ymax = Math.max(...ys)
+  const padX = (xmax - xmin) * 0.06 || 1
+  const padY = (ymax - ymin) * 0.06 || 1
+  const toX = x => 40 + ((x - (xmin - padX)) / (xmax - xmin + 2*padX)) * (w - 60)
+  const toY = y => h - 20 - ((y - (ymin - padY)) / (ymax - ymin + 2*padY)) * (h - 40)
+
+  // axes
+  const ax = document.createElementNS(svgNS,'line'); ax.setAttribute('x1',40); ax.setAttribute('y1',10); ax.setAttribute('x2',40); ax.setAttribute('y2',h-20); ax.setAttribute('stroke','rgba(255,255,255,0.06)'); svg.appendChild(ax)
+  const ay = document.createElementNS(svgNS,'line'); ay.setAttribute('x1',40); ay.setAttribute('y1',h-20); ay.setAttribute('x2',w-10); ay.setAttribute('y2',h-20); ay.setAttribute('stroke','rgba(255,255,255,0.06)'); svg.appendChild(ay)
+
+  const path = document.createElementNS(svgNS,'path')
+  const d = series.map((p,i)=> (i===0? 'M ':'L ') + toX(p.x) + ' ' + toY(p.y)).join(' ')
+  path.setAttribute('d', d); path.setAttribute('fill','none'); path.setAttribute('stroke','#dba87a'); path.setAttribute('stroke-width',2.8); path.setAttribute('stroke-linecap','round')
+  svg.appendChild(path)
+  const len = path.getTotalLength()
+  path.style.strokeDasharray = len; path.style.strokeDashoffset = len
+  path.getBoundingClientRect()
+  path.style.transition = 'stroke-dashoffset 700ms cubic-bezier(.2,.9,.2,1)'
+  requestAnimationFrame(()=> path.style.strokeDashoffset = '0')
+
+  if(series2){
+    const path2 = document.createElementNS(svgNS,'path')
+    const d2 = series2.map((p,i)=> (i===0? 'M ':'L ') + toX(p.x) + ' ' + toY(p.y)).join(' ')
+    path2.setAttribute('d', d2); path2.setAttribute('fill','none'); path2.setAttribute('stroke','#8b5e3c'); path2.setAttribute('stroke-width',2.0)
+    svg.appendChild(path2)
+    const len2 = path2.getTotalLength()
+    path2.style.strokeDasharray = len2; path2.style.strokeDashoffset = len2
+    path2.style.transition = 'stroke-dashoffset 900ms cubic-bezier(.2,.9,.2,1) 120ms'
+    requestAnimationFrame(()=> path2.style.strokeDashoffset = '0')
+  }
+
+  series.forEach((p,i)=>{
+    const c = document.createElementNS(svgNS,'circle')
+    c.setAttribute('cx', toX(p.x)); c.setAttribute('cy', toY(p.y)); c.setAttribute('r', 2.8); c.setAttribute('fill', '#fff'); c.style.opacity = 0
+    svg.appendChild(c)
+    setTimeout(()=> c.style.opacity = 1, 400 + i*8)
+  })
+
+  container.appendChild(svg)
+}
+
+/* ---------------- Gaussian elimination ---------------- */
+function parseMatrixText(text){ return text.trim().split(/\n+/).map(r=>r.trim().split(/\s+/).map(Number)) }
+function parseVectorText(text){ return text.trim().split(/\s+/).map(Number) }
+function gaussianElimination(A,b){
+  const n=A.length; const M=A.map((r,i)=>r.slice().concat([b[i]]))
+  for(let k=0;k<n;k++){
+    let maxRow=k
+    for(let i=k+1;i<n;i++) if(Math.abs(M[i][k])>Math.abs(M[maxRow][k])) maxRow=i
+    if(Math.abs(M[maxRow][k])<1e-12) throw new Error('Matriz singular o casi singular')
+    const tmp=M[k]; M[k]=M[maxRow]; M[maxRow]=tmp
+    for(let i=k+1;i<n;i++){
+      const factor = M[i][k]/M[k][k]
+      for(let j=k;j<=n;j++) M[i][j] -= factor * M[k][j]
+    }
+  }
+  const x=Array(n).fill(0)
+  for(let i=n-1;i>=0;i--){
+    let s=M[i][n]; for(let j=i+1;j<n;j++) s-=M[i][j]*x[j]
+    x[i]=s/M[i][i]
+  }
+  return x
+}
+
+/* UI - Linear */
+$('lin-solve').addEventListener('click', ()=> {
+  addRipple($('lin-solve'))
+  $('lin-loading').style.display='inline-block'
+  setTimeout(()=> $('lin-loading').style.display='none', 900)
+  setTimeout(()=>{
+    const Atext = $('lin-A').value, btext = $('lin-b').value
+    const out = $('lin-output'); try{
+      const A = parseMatrixText(Atext), b = parseVectorText(btext)
+      if(A.length===0) throw new Error('Matriz A vacía')
+      if(A.some(r=>r.length !== A[0].length)) throw new Error('Filas de A con diferente longitud')
+      if(b.length !== A.length) throw new Error('Vector b debe tener la misma longitud que A (n filas)')
+      const sol = gaussianElimination(A,b)
+      out.style.display='block'; clearChildren(out)
+      const title = document.createElement('div'); title.innerHTML = '<strong>Solución aproximada</strong>'; out.appendChild(title)
+      const wrap = document.createElement('div'); wrap.style.marginTop='8px'
+      sol.forEach((v,i)=>{
+        const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center'; row.style.marginTop='6px'
+        const name = document.createElement('div'); name.textContent = `x[${i}]`
+        const val = document.createElement('div'); val.className='num'; val.textContent = '0.000000'; row.appendChild(name); row.appendChild(val); wrap.appendChild(row)
+        animateNumber(val, 0, v, 900 + i*80)
+      })
+      out.appendChild(wrap)
+      // capibara blink when calculation finishes
+      capibaraBlink()
+    }catch(err){
+      out.style.display='block'; out.innerHTML = `<strong style="color:#ff9aa2">Error:</strong> ${err.message}`
+    }
+  }, 160)
+})
+$('lin-example').addEventListener('click', ()=> { $('lin-A').value='3 2 -1\n2 -2 4\n-1 0.5 -1'; $('lin-b').value='1 -2 0' })
+
+/* Lagrange interpolation */
+function lagrangeInterpolation(xs, ys, x){
+  let y=0; const n=xs.length
+  for(let i=0;i<n;i++){
+    let Li=1
+    for(let j=0;j<n;j++) if(j!==i) Li *= (x - xs[j])/(xs[i]-xs[j])
+    y += Li * ys[i]
+  }
+  return y
+}
+$('int-calc').addEventListener('click', ()=>{
+  addRipple($('int-calc'))
+  const xs = $('int-xs').value.trim().split(/\s+/).map(Number)
+  const ys = $('int-ys').value.trim().split(/\s+/).map(Number)
+  const xi = Number($('int-x').value)
+  const out = $('int-result'); try{
+    if(xs.length !== ys.length) throw new Error('x e y deben tener la misma longitud')
+    const yi = lagrangeInterpolation(xs, ys, xi)
+    out.style.display='block'; clearChildren(out)
+    const title = document.createElement('div'); title.innerHTML = `<strong>y(${xi}) ≈ <span class="num">${yi.toFixed(6)}</span></strong>`; out.appendChild(title)
+    const xmin = Math.min(...xs), xmax = Math.max(...xs)
+    const pts=[]; const steps = 160; const h=(xmax-xmin)/steps || 0.1
+    for(let t=xmin;t<=xmax+1e-12;t+=h) pts.push({x:t, y: lagrangeInterpolation(xs, ys, t)})
+    const nodes = xs.map((xx,i)=>({x:xx, y:ys[i]}))
+    plotAnimated($('int-chart'), pts, nodes)
+    capibaraBlink()
+  }catch(err){
+    out.style.display='block'; out.innerHTML = `<strong style="color:#ff9aa2">Error:</strong> ${err.message}`
+  }
+})
+$('int-example').addEventListener('click', ()=> { $('int-xs').value='0 1 2 3'; $('int-ys').value='1 2 0 -1'; $('int-x').value='1.5' })
+
+/* Differentiation & Simpson */
+function centralDifferenceEval(f,x,h=1e-5){ return (f(x+h) - f(x-h)) / (2*h) }
+function simpson(f,a,b,n=100){
+  if(n%2===1) n++; const h=(b-a)/n; let s=f(a)+f(b)
+  for(let i=1;i<n;i++){ const x=a+i*h; s += (i%2===0?2:4)*f(x) }
+  return (h/3)*s
+}
+$('di-run').addEventListener('click', ()=>{
+  addRipple($('di-run'))
+  const ftext = $('di-f').value, xi = Number($('di-x').value), h = Number($('di-h').value)
+  const a = Number($('di-a').value), b = Number($('di-b').value), n = Number($('di-n').value)
+  const out = $('di-output')
+  try{
+    const f = new Function('x', `return ${ftext};`)
+    const der = centralDifferenceEval(f, xi, h)
+    const integral = simpson(f, a, b, n)
+    out.style.display='block'; clearChildren(out)
+    const derDiv = document.createElement('div'); derDiv.innerHTML = `<div class="label-muted">Derivada aproximada</div><div style="margin-top:6px"><span class="num">0.000000</span></div>`
+    const intDiv = document.createElement('div'); intDiv.innerHTML = `<div class="label-muted" style="margin-top:10px">Integral (Simpson)</div><div style="margin-top:6px"><span class="num">0.000000</span></div>`
+    out.appendChild(derDiv); out.appendChild(intDiv)
+    animateNumber(derDiv.querySelector('.num'), 0, der, 900)
+    animateNumber(intDiv.querySelector('.num'), 0, integral, 1100)
+    const pts=[]; const steps=160; const step=(b-a)/steps || 0.1
+    for(let t=a;t<=b+1e-12;t+=step) pts.push({x:t, y: f(t)})
+    plotAnimated($('di-chart'), pts)
+    capibaraBlink()
+  }catch(err){
+    out.style.display='block'; out.innerHTML = `<strong style="color:#ff9aa2">Error:</strong> ${err.message}`
+  }
+})
+$('di-example').addEventListener('click', ()=> {
+  $('di-f').value='Math.sin(x)'; $('di-x').value='1'; $('di-h').value='1e-4'; $('di-a').value='0'; $('di-b').value=String(Math.PI); $('di-n').value='100'
+})
+
+/* ---------------- capibara blink (small head rotation) --------------- */
+function capibaraBlink(){
+  const head = document.querySelector('.cap-head')
+  if(!head) return
+  // quick stronger bob
+  head.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:380, easing:'ease-out'})
+}
+
+/* nav toggle */
+function show(id){
+  $('panel-linear').style.display = id==='linear' ? 'block' : 'none'
+  $('panel-interp').style.display = id==='interp' ? 'block' : 'none'
+  $('panel-diffint').style.display = id==='diffint' ? 'block' : 'none'
+  $('btn-linear').className = id==='linear' ? 'btn' : 'btn gray'
+  $('btn-interp').className  = id==='interp' ? 'btn' : 'btn gray'
+  $('btn-diffint').className = id==='diffint' ? 'btn' : 'btn gray'
+}
+$('btn-linear').addEventListener('click', ()=>{ show('linear'); addRipple($('btn-linear')) })
+$('btn-interp').addEventListener('click', ()=>{ show('interp'); addRipple($('btn-interp')) })
+$('btn-diffint').addEventListener('click', ()=>{ show('diffint'); addRipple($('btn-diffint')) })
+show('linear')
+
+/* Optional: clicking anywhere toggles capibara faster walk once for fun */
+document.addEventListener('click', (e)=>{
+  const wrap = $('capWrap')
+  if(!wrap) return
+  // speed-up animation by toggling class with shorter duration temporarily
+  wrap.classList.remove('walk')
+  wrap.style.animation = 'none'
+  // apply a faster one-shot animation
+  wrap.animate([{transform:'translateX(-160px)'},{transform:'translateX(220px)'}],{duration:900, easing:'ease-in-out'})
+  setTimeout(()=> wrap.classList.add('walk'), 1100)
+})
+</script>
+</body>
+</html>
